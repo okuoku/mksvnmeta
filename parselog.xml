@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="1.0">
+    <xsl:output method="text" />
+    <xsl:template match="//path[@kind='dir'][boolean(@copyfrom-path)]">
+        <xsl:text>branch:</xsl:text>
+        <xsl:value-of select="@copyfrom-rev"/>
+        <xsl:text>:</xsl:text>
+        <xsl:value-of select="@copyfrom-path"/>
+        <xsl:text>&#9;</xsl:text>
+        <xsl:value-of select="."/>
+        <xsl:text>&#10;</xsl:text>
+    </xsl:template>
+    <xsl:template match="//path[@kind='dir'][@action='D']">
+        <xsl:text>branchclose:</xsl:text>
+        <xsl:value-of select="."/>
+        <xsl:text>&#10;</xsl:text>
+    </xsl:template>
+
+    <!-- Override the built-in template. See "5.8 Built-in Template Rules" -->
+    <xsl:template match="text()"/>
+</xsl:stylesheet>
+
