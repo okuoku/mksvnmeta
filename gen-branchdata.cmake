@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.0)
 
+set(LOGDATA "${CMAKE_CURRENT_BINARY_DIR}/../wrk")
+
 set(ENV{LANG} "C.UTF8")
 set(startrev 1)
 
@@ -16,95 +18,24 @@ function(xml_xslt res xslt input)
     set(${res} "${out}" PARENT_SCOPE)
 endfunction()
 
-function(make_revfile_path res prefix rev)
-    # Output ${prefix}/XXXX/YYY.log.xml with zero-filled
-    math(EXPR yyy "${rev}%1000")
-    math(EXPR xxxx "(${rev}-${yyy})/1000")
-    if(${xxxx} LESS 10)
-        set(xxxx "000${xxxx}")
-    elseif(${xxxx} LESS 100)
-        set(xxxx "00${xxxx}")
-    elseif(${xxxx} LESS 1000)
-        set(xxxx "0${xxxx}")
-    endif()
-    if(${yyy} LESS 10)
-        set(yyy "00${yyy}")
-    elseif(${yyy} LESS 100)
-        set(yyy "0${yyy}")
-    endif()
-    set(${res} "${prefix}/${xxxx}/${yyy}.log.xml" PARENT_SCOPE)
-endfunction()
-
-function(path_includes_p out base pth)
-    string(LENGTH ${base} len)
-    string(SUBSTRING ${pth} 0 ${len} ck)
-    if(${ck} STREQUAL ${base})
-        set(${out} ON PARENT_SCOPE)
-    else()
-        set(${out} OFF PARENT_SCOPE)
-    endif()
-endfunction()
-
-file(STRINGS ${CMAKE_CURRENT_BINARY_DIR}/branches.txt lines)
-
-branch_init()
-branch_read(${lines})
-branch_dump(out)
-
-file(READ ${CMAKE_CURRENT_BINARY_DIR}/currev.txt in)
+file(READ ${LOGDATA}/currev.txt in)
 if("${in}" MATCHES "revision:([0-9]*)")
     set(endrev ${CMAKE_MATCH_1})
 else()
     message(FATAL_ERROR "currev parse error: ${in}")
 endif()
 
+message(STATUS "startrev = ${startrev}")
 message(STATUS "endrev = ${endrev}")
 
+execute_process(
+    COMMAND ${CMAKE_CURRENT_LIST_DIR}/runrevpar.sh
+    ${startrev}
+    ${endrev}
+    -DLOGDATA=${LOGDATA}
+    -P ${CMAKE_CURRENT_LIST_DIR}/revbranch.cmake
+    RESULT_VARIABLE rr)
 
-set(currev ${startrev})
-while(1)
-    if(${currev} GREATER ${endrev})
-        break()
-    endif()
-    #message(STATUS "Proc(${currev}/${endrev})")
-    make_revfile_path(pth ${CMAKE_CURRENT_BINARY_DIR} ${currev})
-
-    xml_xslt(res ${CMAKE_CURRENT_LIST_DIR}/parselog2.xml ${pth})
-    string(REGEX REPLACE "\n" ";" res "${res}")
-
-    branch_get_active_paths(paths ${currev})
-    set(affected)
-    set(unhandled)
-
-    foreach(p ${res})
-        set(cur)
-        set(is_branch)
-        foreach(a ${paths})
-            if(${p} STREQUAL ${a})
-                set(is_branch ON)
-                break()
-            endif()
-            if(${a} STREQUAL "/")
-                # Special handling for /
-                path_includes_p(out ${a} ${p})
-            else()
-                path_includes_p(out ${a}/ ${p})
-            endif()
-            if(${out})
-                #message(STATUS "Map: ${a} <= ${p}")
-                set(cur ${a})
-                break()
-            endif()
-        endforeach()
-        if(is_branch)
-            # message(STATUS "Branchmod: ${p}")
-            list(APPEND affected "${p}")
-        elseif(cur)
-            list(APPEND affected "${cur}")
-        else()
-            message(STATUS "Unhandled(${currev}): ${p}")
-        endif()
-    endforeach()
-
-    math(EXPR currev "${currev}+1")
-endwhile()
+if(rr)
+    message(FATAL_ERROR "Revbranch err: ${rr}")
+endif()
