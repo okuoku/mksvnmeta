@@ -6,6 +6,7 @@
 #    props.txt : Properties list
 #
 #  INPUTs:
+#    REV: Revision
 #    DIR: Directory in the repository
 #    IDX: Branch index
 
@@ -14,7 +15,7 @@ cmake_minimum_required(VERSION 3.0)
 set(ENV{LANG} "C.UTF8")
 
 set(REPO "file:///home/oku/repos/svn/irrlicht")
-set(REPOPATH "${REPO}/${DIR}")
+set(REPOPATH "${REPO}${DIR}")
 
 string(LENGTH "${REPOPATH}" repopathlen)
 
@@ -87,8 +88,24 @@ function(svn_getpropcontent pth repo prop rev)
     endif()
 endfunction()
 
+function(checkpath url)
+    string(LENGTH "${url}" urllen)
+    if(${repopathlen} GREATER ${urllen})
+        message(STATUS "SOMETHINGWRONG: ${url} ## ${REPOPATH}")
+    elseif(${repopathlen} EQUAL ${urllen})
+        message(STATUS "Suspicious: ${url} ## ${REPOPATH}")
+    endif()
+endfunction()
+
 macro(register_prop url prop val)
-    string(SUBSTRING ${url} ${repopathlen} -1 __prefix)
+    #checkpath(${url})
+    if("${url}/" STREQUAL ${REPOPATH})
+        set(__prefix "/")
+    elseif(${url} STREQUAL ${REPOPATH})
+        set(__prefix "/")
+    else()
+        string(SUBSTRING ${url} ${repopathlen} -1 __prefix)
+    endif()
     set(prop_${prop}_${__prefix} ${val})
     if(NOT prefixes_${__prefix})
         set(prefixes_${__prefix} ON)
@@ -125,7 +142,7 @@ foreach(p ${propnames})
     set(cururl)
     set(acc)
     foreach(l ${res})
-        message(STATUS "LINE: ${l}")
+        #message(STATUS "LINE: ${l}")
         if(NOT cururl)
             if(${l} MATCHES "@@\\?(.*)")
                 set(cururl ${CMAKE_MATCH_1})
@@ -164,4 +181,4 @@ endforeach()
 
 file(WRITE ${pth}/props.txt ${out})
 
-message(STATUS "Done ${REV}.")
+#message(STATUS "Done ${REV}.")
