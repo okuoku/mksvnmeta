@@ -1,4 +1,10 @@
 #
+# revbranch: Generate branch order data for a revision
+#
+#    XXXX/YYY.*
+#      .unhandled.txt : Unhandled paths list
+#      .branches.txt  : Affected branches list (SORTED)
+#
 # INPUTs:
 #  LOGDATA: Full path to logdata dir
 #  REV: Revision to process
@@ -20,6 +26,34 @@ function(xml_xslt res xslt input)
         message(FATAL_ERROR "xsltproc: ${rr}")
     endif()
     set(${res} "${out}" PARENT_SCOPE)
+endfunction()
+
+function(make_revdata_path res suffix)
+    # Output {CURPATH}/order/XXXX/YYY.{suffix} with zero-filled
+    set(rev ${REV})
+    math(EXPR yyy "${rev}%1000")
+    math(EXPR xxxx "(${rev}-${yyy})/1000")
+    if(${xxxx} LESS 10)
+        set(xxxx "000${xxxx}")
+    elseif(${xxxx} LESS 100)
+        set(xxxx "00${xxxx}")
+    elseif(${xxxx} LESS 1000)
+        set(xxxx "0${xxxx}")
+    endif()
+    if(${yyy} LESS 10)
+        set(yyy "00${yyy}")
+    elseif(${yyy} LESS 100)
+        set(yyy "0${yyy}")
+    endif()
+    set(${res} "${CMAKE_CURRENT_BINARY_DIR}/order/${xxxx}/${yyy}.${suffix}" PARENT_SCOPE)
+endfunction()
+
+function(write_listfile outpath var)
+    set(out)
+    foreach(l ${var})
+        set(out "${out}${l}\n")
+    endforeach()
+    file(WRITE ${outpath} ${out})
 endfunction()
 
 function(make_revfile_path res prefix rev)
@@ -65,6 +99,9 @@ branch_get_active_paths(paths ${REV})
 set(affected)
 set(unhandled)
 
+make_revdata_path(procbegin_path procbegin.txt)
+write_listfile(${procbegin_path} begin)
+
 foreach(p ${res})
     set(cur)
     set(is_branch)
@@ -91,7 +128,19 @@ foreach(p ${res})
     elseif(cur)
         list(APPEND affected "${cur}")
     else()
-        message(STATUS "Unhandled(${REV}): ${p}")
+        # message(STATUS "Unhandled(${REV}): ${p}")
+        list(APPEND unhandled "${p}")
     endif()
 endforeach()
+
+if(unhandled)
+    list(SORT unhandled)
+    make_revdata_path(unhandled_path unhandled.txt)
+    write_listfile(${unhandled_path} ${unhandled})
+endif()
+if(affected)
+    list(SORT affected)
+    make_revdata_path(affected_path affected.txt)
+    write_listfile(${affected_path} ${affected})
+endif()
 
