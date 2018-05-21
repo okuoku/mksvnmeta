@@ -1,15 +1,56 @@
+#
+# revgen: Generate revision data for a revision + branch
+#
+#  XXXX/YYY_bZZZZZ/*
+#    dirname.txt : Branch name
+#    props.txt : Properties list
+#
+#  INPUTs:
+#    DIR: Directory in the repository
+#    IDX: Branch index
+
 cmake_minimum_required(VERSION 3.0)
 
 set(ENV{LANG} "C.UTF8")
-set(REV 5605)
 
 set(REPO "file:///home/oku/repos/svn/irrlicht")
-set(DIR "/trunk")
-set(REPOPATH "${REPO}${DIR}")
+set(REPOPATH "${REPO}/${DIR}")
 
 string(LENGTH "${REPOPATH}" repopathlen)
 
-set(TMP "${CMAKE_CURRENT_BINARY_DIR}/tmp${REV}") # FIXME: Add path info, / => _
+set(TMP "${CMAKE_CURRENT_BINARY_DIR}/tmp${REV}_${IDX}")
+
+function(make_revdata_path2 res)
+    # Output {CURPATH}/branchdata/XXXX/YYY_bZZZZZ with zero-filled
+    set(rev ${REV})
+    math(EXPR yyy "${rev}%1000")
+    math(EXPR xxxx "(${rev}-${yyy})/1000")
+    if(${xxxx} LESS 10)
+        set(xxxx "000${xxxx}")
+    elseif(${xxxx} LESS 100)
+        set(xxxx "00${xxxx}")
+    elseif(${xxxx} LESS 1000)
+        set(xxxx "0${xxxx}")
+    endif()
+    if(${yyy} LESS 10)
+        set(yyy "00${yyy}")
+    elseif(${yyy} LESS 100)
+        set(yyy "0${yyy}")
+    endif()
+    if(${IDX} LESS 10)
+        set(zzzzz "0000${IDX}")
+    elseif(${IDX} LESS 100)
+        set(zzzzz "000${IDX}")
+    elseif(${IDX} LESS 1000)
+        set(zzzzz "00${IDX}")
+    elseif(${IDX} LESS 10000)
+        set(zzzzz "0${IDX}")
+    else()
+        set(zzzzz ${IDX})
+    endif()
+
+    set(${res} "${CMAKE_CURRENT_BINARY_DIR}/branchdata/${xxxx}/${yyy}_b${zzzzz}" PARENT_SCOPE)
+endfunction()
 
 function(xml_xslt res xslt input)
     execute_process(
@@ -54,6 +95,11 @@ macro(register_prop url prop val)
         list(APPEND prefixes ${__prefix})
     endif()
 endmacro()
+
+make_revdata_path2(pth)
+file(MAKE_DIRECTORY ${pth})
+
+file(WRITE ${pth}/dirname.txt ${DIR})
 
 set(props ${TMP}.props.xml)
 set(propcontent ${TMP}.propcontent.xml)
@@ -104,6 +150,7 @@ foreach(p ${propnames})
     file(REMOVE ${propcontent})
 endforeach()
 
+
 #message(STATUS "CALC...")
 set(out)
 foreach(u ${prefixes})
@@ -114,5 +161,7 @@ foreach(u ${prefixes})
         endif()
     endforeach()
 endforeach()
-message(STATUS ${out})
 
+file(WRITE ${pth}/props.txt ${out})
+
+message(STATUS "Done ${REV}.")
