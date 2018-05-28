@@ -64,7 +64,7 @@ function(xml_xslt res xslt input)
     set(${res} "${out}" PARENT_SCOPE)
 endfunction()
 
-function(svn_getproplist pth repo rev)
+function(svn_getproplist res pth repo rev)
     get_filename_component(dir ${pth} PATH)
     file(MAKE_DIRECTORY ${dir})
     execute_process(
@@ -72,7 +72,11 @@ function(svn_getproplist pth repo rev)
         OUTPUT_FILE ${pth}
         RESULT_VARIABLE rr)
     if(rr)
-        message(FATAL_ERROR "failed to generate log: ${rr}")
+        # Perhaps no properties available
+        message(STATUS "failed to generate proplist: ${rr} ${repo}@${rev} (IGNORED)")
+        set(${res} OFF PARENT_SCOPE)
+    else()
+        set(${res} ON PARENT_SCOPE)
     endif()
 endfunction()
 
@@ -121,10 +125,15 @@ file(WRITE ${pth}/dirname.txt ${DIR})
 set(props ${TMP}.props.xml)
 set(propcontent ${TMP}.propcontent.xml)
 
-svn_getproplist(${props} ${REPOPATH} ${REV})
-xml_xslt(res ${CMAKE_CURRENT_LIST_DIR}/prop-enum.xml ${props})
-file(REMOVE ${props})
-string(REGEX REPLACE "\n" ";" res "${res}")
+svn_getproplist(res ${props} ${REPOPATH} ${REV})
+
+if(${res} STREQUAL ON)
+    xml_xslt(res ${CMAKE_CURRENT_LIST_DIR}/prop-enum.xml ${props})
+    file(REMOVE ${props})
+    string(REGEX REPLACE "\n" ";" res "${res}")
+else()
+    set(res)
+endif()
 
 set(propnames)
 foreach(l ${res})
