@@ -1,15 +1,7 @@
 cmake_minimum_required(VERSION 3.0)
 
-set(LOGDATA "${CMAKE_CURRENT_BINARY_DIR}/../wrk")
-
-set(startrev 1)
-
-file(READ ${LOGDATA}/currev.txt in)
-if("${in}" MATCHES "revision:([0-9]*)")
-    set(endrev ${CMAKE_MATCH_1})
-else()
-    message(FATAL_ERROR "currev parse error: ${in}")
-endif()
+set(startrev ${STARTREV})
+set(endrev ${ENDREV})
 
 message(STATUS "startrev = ${startrev}")
 message(STATUS "endrev = ${endrev}")

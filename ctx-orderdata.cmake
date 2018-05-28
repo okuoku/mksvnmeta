@@ -1,9 +1,8 @@
 cmake_minimum_required(VERSION 3.0)
 
-set(LOGDATA "${CMAKE_CURRENT_BINARY_DIR}/../wrk")
-
 set(ENV{LANG} "C.UTF8")
-set(startrev 1)
+set(startrev ${STARTREV})
+set(endrev ${ENDREV})
 
 include(${CMAKE_CURRENT_LIST_DIR}/branchmgr.cmake)
 
@@ -31,13 +30,6 @@ function(xml_xslt res xslt input)
     endif()
     set(${res} "${out}" PARENT_SCOPE)
 endfunction()
-
-file(READ ${LOGDATA}/currev.txt in)
-if("${in}" MATCHES "revision:([0-9]*)")
-    set(endrev ${CMAKE_MATCH_1})
-else()
-    message(FATAL_ERROR "currev parse error: ${in}")
-endif()
 
 message(STATUS "startrev = ${startrev}")
 message(STATUS "endrev = ${endrev}")
