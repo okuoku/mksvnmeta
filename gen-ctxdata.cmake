@@ -29,7 +29,7 @@ endif()
 if(EXISTS ${CTXREPO}/currev.txt)
     file(READ ${CTXREPO}/currev.txt in)
     if("${in}" MATCHES "revision:([0-9]*)")
-        set(start ${CMAKE_MATCH_1})
+        set(startrev ${CMAKE_MATCH_1})
     else()
         message(FATAL_ERROR "currev parse error: ${in}")
     endif()
@@ -59,7 +59,7 @@ while(1)
     # Calc curendrev
     math(EXPR curendrev "${curstartrev}+100-1")
     if(${curendrev} GREATER ${endrev})
-        set(endrev ${curendrev})
+        set(curendrev ${endrev})
     endif()
 
     # Run order => branchdata 
