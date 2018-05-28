@@ -1,6 +1,5 @@
 set(REPO "file:///home/oku/repos/svn/irrlicht")
 set(ENV{LANG} "C.UTF8")
-set(startrev 1)
 
 include(${CMAKE_CURRENT_LIST_DIR}/branchmgr.cmake)
 
@@ -34,24 +33,40 @@ function(make_revfile_path res prefix rev)
     set(${res} "${prefix}/${xxxx}/${yyy}.log.xml" PARENT_SCOPE)
 endfunction()
 
-file(READ ${CMAKE_CURRENT_BINARY_DIR}/currev.txt in)
-if("${in}" MATCHES "revision:([0-9]*)")
-    set(endrev ${CMAKE_MATCH_1})
+branch_init()
+
+# Calc endrev
+if(EXISTS logcurrev.txt)
+    file(READ ${CMAKE_CURRENT_BINARY_DIR}/logcurrev.txt in)
+    if("${in}" MATCHES "revision:([0-9]*)")
+        set(endrev ${CMAKE_MATCH_1})
+    else()
+        message(FATAL_ERROR "logcurrev parse error: ${in}")
+    endif()
 else()
-    message(FATAL_ERROR "currev parse error: ${in}")
+    message(FATAL_ERROR "Generate logxml first.")
 endif()
 
+# Load previous data and calc startrev
+if(EXISTS branches.txt)
+    file(READ ${CMAKE_CURRENT_BINARY_DIR}/currev.txt in)
+    if("${in}" MATCHES "revision:([0-9]*)")
+        set(startrev ${CMAKE_MATCH_1})
+    else()
+        message(FATAL_ERROR "currev parse error: ${in}")
+    endif()
+
+    file(STRINGS branches.txt lines)
+    branch_read(${lines})
+else()
+    set(startrev 1)
+endif()
+
+message(STATUS "startrev = ${startrev}")
 message(STATUS "endrev = ${endrev}")
 
 # Load static-branch data
 include(${CMAKE_CURRENT_BINARY_DIR}/static-branches.cmake)
-
-# Skip specified region
-if(${skiprev} GREATER ${startrev})
-    set(startrev ${skiprev})
-endif()
-
-# 
 
 set(currev ${startrev})
 while(1)
@@ -98,3 +113,4 @@ endwhile()
 branch_dump(out)
 
 file(WRITE branches.txt "${out}")
+file(WRITE currev.txt "revision:${endrev}")

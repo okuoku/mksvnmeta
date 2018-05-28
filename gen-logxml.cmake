@@ -1,6 +1,5 @@
 set(REPO "file:///home/oku/repos/svn/irrlicht")
 set(ENV{LANG} "C.UTF8")
-set(startrev 1)
 
 include(${CMAKE_CURRENT_LIST_DIR}/branchmgr.cmake)
 
@@ -68,6 +67,18 @@ function(make_revfile_path res prefix rev)
     set(${res} "${prefix}/${xxxx}/${yyy}.log.xml" PARENT_SCOPE)
 endfunction()
 
+# Get startrev
+if(EXISTS logcurrev.txt)
+    file(READ logcurrev.txt in)
+    if("${in}" MATCHES "revision:([0-9]*)")
+        set(startrev ${CMAKE_MATCH_1})
+    else()
+        message(FATAL_ERROR "logcurrev parse error: ${in}")
+    endif()
+else()
+    set(startrev 1)
+endif()
+
 # Get endrev
 svn_getinfoxml(res ${REPO} HEAD)
 message(STATUS "Info: ${res}")
@@ -80,8 +91,9 @@ else()
     message(FATAL_ERROR "Invalid info output ${res}")
 endif()
 file(REMOVE tmp.xml)
-file(WRITE currev.txt "${out}")
+file(WRITE logcurrev.txt "${out}")
 
+message(STATUS "startrev = ${startrev}")
 message(STATUS "endrev = ${endrev}")
 
 # Acquire logs
