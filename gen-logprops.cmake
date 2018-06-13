@@ -97,4 +97,17 @@ while(1)
     math(EXPR curstartrev "${curendrev}+1")
 endwhile()
 
+# Cleanup
+if(EXISTS the_dump)
+    file(REMOVE the_dump)
+endif()
+
+if(EXISTS splitsvndump)
+    file(REMOVE splitsvndump)
+endif()
+
+if(EXISTS splitsvndump.exe)
+    file(REMOVE splitsvndump.exe)
+endif()
+
 file(WRITE propcurrev.txt "revision:${endrev}\n")
