@@ -121,7 +121,6 @@ static int /* 0, EOF */
 seek_to(const char* header_name, header_t* out_hdr){
     int r;
     while(1){
-        dumpline(&mapping[curoff]);
         r = read_header(out_hdr);
         if(r == EOF){
             return EOF;
@@ -135,13 +134,69 @@ seek_to(const char* header_name, header_t* out_hdr){
             /* Ignore empty line */
             continue;
         }
-        printf("Check for [%s]\n", header_name);
+        //printf("Check for [%s]\n", header_name);
         r = strncmp(out_hdr->key_addr, header_name, out_hdr->key_len);
         if(!r){
             return 0;
         }
     }
 }
+
+typedef struct {
+    struct iovec* iovs;
+    size_t iov_bufcount;
+    size_t iov_count;
+}segwriter_t;
+
+static void
+segwriter_clear(segwriter_t* sw){
+    sw->iov_count = 0;
+}
+
+static void
+segwriter_init(segwriter_t* sw){
+    sw->iov_bufcount = 100;
+    sw->iovs = malloc(sizeof(struct iovec)*sw->iov_bufcount);
+    segwriter_clear(sw);
+}
+
+static void
+segwriter_add(segwriter_t* sw, void* base, size_t len){
+    if(sw->iov_count + 1 == sw->iov_bufcount){
+        /* Resize it first */
+        sw->iov_bufcount *= 2;
+        sw->iovs = realloc(sw->iovs, sw->iov_bufcount);
+    }
+    sw->iovs[sw->iov_count].iov_base = base;
+    sw->iovs[sw->iov_count].iov_len = len;
+    sw->iov_count++;
+}
+
+static int /* errno */
+segwriter_write(segwriter_t* sw, const char* filename){
+    int r, ret;
+    ssize_t writelen;
+    r = open(filename, O_CREAT | O_WRONLY | O_TRUNC, 0777);
+    if(r < 0){
+        return errno;
+    }
+    writelen = writev(r, sw->iovs, sw->iov_count);
+    if(writelen < 0){
+        ret = errno;
+    }else{
+        ret = 0;
+    }
+    close(r);
+    return ret;
+}
+
+static int
+write_revision(segwriter_t* sw, int revno){
+    char filename[128];
+    snprintf(filename, 128, "%d.prop.txt", revno);
+    return segwriter_write(sw, filename);
+}
+
 
 static int
 run(void){
@@ -178,10 +233,15 @@ run(void){
      */
 
     int r;
+    int term;
     header_t hdr;
     long len,proplen;
+    void *segstart, *segend;
+    segwriter_t sw;
     currev = -1;
     curoff = 0; /* off = 0 must point beginning of the header */
+
+    segwriter_init(&sw);
 
     /* #0 : Skip Repository header */
     r = seek_to("Revision-number", &hdr);
@@ -189,11 +249,12 @@ run(void){
         fprintf(stderr, "Cannot find any revision\n");
         exit(-1);
     }
-    while(1){
+    while(!term){
 for_next_revision:
         /* #1 : Collect revnumber and Skip for nodes */
         currev = intvalue(&hdr);
         printf("Revision = %d (%ld)\n", currev, curoff);
+        segwriter_clear(&sw);
         r = seek_to("Content-length", &hdr);
         if(r == EOF){
             fprintf(stderr, "Cannot get content-length (rev)\n");
@@ -204,18 +265,21 @@ for_next_revision:
         /* #2 : Collect nodes */
         while(1){
 next_node:
-            dumpline(&mapping[curoff]);
             r = read_header(&hdr);
             if(r == EOF){
-                break;
+                term = 1;
+                goto endgame;
             }
             if(is_header_p("Revision-number", &hdr)){
+                write_revision(&sw, currev);
                 goto for_next_revision;
             }else{
                 if(! is_header_p("Node-path", &hdr)){
                     fprintf(stderr, "Unexpected header (node)\n");
                     exit(-1);
                 }
+                segstart = hdr.key_addr;
+                proplen = 0;
                 while(1){
                     r = read_header(&hdr);
                     if(r == EOF){
@@ -230,22 +294,36 @@ next_node:
                         }else{
                             printf("FIXME:\n");
                         }
+                        if(!segstart){
+                            fprintf(stderr, "Inconsistent stream(nullhdr)\n");
+                            exit(-1);
+                        }
+                        segend = &mapping[curoff-1];
+                        segwriter_add(&sw, segstart, segend - segstart);
+                        segstart = NULL;
                         goto next_node;
                     }else if(is_header_p("Prop-content-length", &hdr)){
                         proplen = intvalue(&hdr);
-                        printf("  proplen = %ld\n", proplen);
+                        //printf("  proplen = %ld\n", proplen);
                     }else if(is_header_p("Content-length", &hdr)){
                         len = intvalue(&hdr);
-                        printf("seek: %ld ", curoff);
+                        //printf("seek: %ld ", curoff);
+                        segend = &mapping[curoff + proplen + 1];
+                        segwriter_add(&sw, segstart, segend - segstart);
                         curoff += (len + 3);
-                        printf("=> %ld\n", curoff);
+                        //printf("=> %ld\n", curoff);
+                        if(!segstart){
+                            fprintf(stderr, "Inconsistent stream(content)\n");
+                            exit(-1);
+                        }
                         break;
                     }
                 }
             }
         }
-
+endgame:
         /* #3 : Output a file for the revision */
+        write_revision(&sw, currev);
         /* #4 : Goto 1 until EOF */
     }
 
