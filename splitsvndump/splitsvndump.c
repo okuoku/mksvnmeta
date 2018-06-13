@@ -155,7 +155,7 @@ segwriter_clear(segwriter_t* sw){
 
 static void
 segwriter_init(segwriter_t* sw){
-    sw->iov_bufcount = 100;
+    sw->iov_bufcount = 10000;
     sw->iovs = malloc(sizeof(struct iovec)*sw->iov_bufcount);
     segwriter_clear(sw);
 }
@@ -165,6 +165,7 @@ segwriter_add(segwriter_t* sw, void* base, size_t len){
     if(sw->iov_count + 1 == sw->iov_bufcount){
         /* Resize it first */
         sw->iov_bufcount *= 2;
+        printf("Realloc: %p %d => %d\n",sw->iovs, sw->iov_count, sw->iov_bufcount);
         sw->iovs = realloc(sw->iovs, sw->iov_bufcount);
     }
     sw->iovs[sw->iov_count].iov_base = base;
@@ -233,7 +234,7 @@ run(void){
      */
 
     int r;
-    int term;
+    int term = 0;
     header_t hdr;
     long len,proplen;
     void *segstart, *segend;
@@ -357,7 +358,7 @@ main(int ac, char** av){
     }
     maplen = st.st_size;
 
-    printf("Map %d %ld\n", fd, maplen);
+    printf("Map [%s] %d %ld\n", av[1], fd, maplen);
     mapping = mmap(NULL, maplen, PROT_READ, MAP_PRIVATE, fd, 0);
     if(mapping == MAP_FAILED){
         fprintf(stderr, "huh? (mmap) %d\n", errno);
