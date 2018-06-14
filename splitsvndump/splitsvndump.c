@@ -166,7 +166,7 @@ segwriter_add(segwriter_t* sw, void* base, size_t len){
         /* Resize it first */
         sw->iov_bufcount *= 2;
         printf("Realloc: %p %d => %d\n",sw->iovs, sw->iov_count, sw->iov_bufcount);
-        sw->iovs = realloc(sw->iovs, sw->iov_bufcount);
+        sw->iovs = realloc(sw->iovs, sizeof(struct iovec)*sw->iov_bufcount);
     }
     sw->iovs[sw->iov_count].iov_base = base;
     sw->iovs[sw->iov_count].iov_len = len;
