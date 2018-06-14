@@ -77,11 +77,15 @@ read_header(header_t* hdr){
         c = mapping[curoff];
         switch(c){
             case ':':
-                hdr->key_addr = &mapping[linestart];
-                hdr->key_len = curoff - linestart;
-                curoff++;
-                curoff++; /* Consume a space */
-                valuestart = curoff;
+                if(!hdr->key_addr){
+                    hdr->key_addr = &mapping[linestart];
+                    hdr->key_len = curoff - linestart;
+                    curoff++;
+                    curoff++; /* Consume a space */
+                    valuestart = curoff;
+                }else{
+                    curoff++;
+                }
                 break;
             case '\n':
                 if(linestart == curoff){
