@@ -195,11 +195,16 @@ segwriter_write(segwriter_t* sw, const char* filename){
     return ret;
 }
 
-static int
+static void
 write_revision(segwriter_t* sw, int revno){
     char filename[128];
+    int r;
     snprintf(filename, 128, "%d.prop.txt", revno);
-    return segwriter_write(sw, filename);
+    r = segwriter_write(sw, filename);
+    if(r){
+        printf("Writerev failed: %d @ %d\n",revno,r);
+        exit(-1);
+    }
 }
 
 
