@@ -1,3 +1,4 @@
+#define _XOPEN_SOURCE 1
 #include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
@@ -6,8 +7,13 @@
 #include <sys/uio.h>
 #include <sys/mman.h>
 #include <stdlib.h>
+#include <limits.h>
 #include <errno.h>
 #include <fcntl.h>
+
+#ifndef IOV_MAX
+#error IOV_MAX not defined..?
+#endif
 
 int currev;
 size_t curoff;
@@ -180,17 +186,29 @@ segwriter_add(segwriter_t* sw, void* base, size_t len){
 static int /* errno */
 segwriter_write(segwriter_t* sw, const char* filename){
     int r, ret;
-    ssize_t writelen;
-    r = open(filename, O_CREAT | O_WRONLY | O_TRUNC, 0777);
+    ssize_t writelen,cur,residue,count;
+    r = open(filename, O_CREAT | O_WRONLY | O_TRUNC, 0666);
     if(r < 0){
         return errno;
     }
-    writelen = writev(r, sw->iovs, sw->iov_count);
-    if(writelen < 0){
-        ret = errno;
-    }else{
-        ret = 0;
+    residue = sw->iov_count;
+    cur = 0;
+    ret = 0;
+    while(residue){
+        if(residue > IOV_MAX){
+            count = IOV_MAX;
+        }else{
+            count = residue;
+        }
+        writelen = writev(r, &sw->iovs[cur], count);
+        if(writelen < 0){
+            ret = errno;
+            goto endgame;
+        }
+        cur += count;
+        residue -= count;
     }
+endgame:
     close(r);
     return ret;
 }
