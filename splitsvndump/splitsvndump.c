@@ -23,8 +23,8 @@ size_t maplen;
 #define MAX_INTVALUELEN 32
 
 typedef struct {
-    void* key_addr;
-    void* value_addr;
+    unsigned char* key_addr;
+    unsigned char* value_addr;
     size_t key_len;
     size_t value_len;
 } header_t;
@@ -42,12 +42,12 @@ intvalue(const header_t* hdr){
     char buf[MAX_INTVALUELEN];
     if(hdr->value_len >= MAX_INTVALUELEN){
         fprintf(stderr, "Value too long, %ld\n",
-                hdr->value_addr - (void*)mapping);
+                hdr->value_addr - mapping);
         exit(-1);
     }
     if(! hdr->value_len){
         fprintf(stderr, "No value, %ld\n",
-                hdr->value_addr - (void*)mapping);
+                hdr->value_addr - mapping);
         exit(-1);
     }
 
@@ -120,7 +120,7 @@ is_header_p(const char* header_name, header_t* hdr){
         fprintf(stderr, "No key for [%s]\n", header_name);
         exit(-1);
     }
-    r = strncmp(hdr->key_addr, header_name, hdr->key_len);
+    r = strncmp((char*)hdr->key_addr, header_name, hdr->key_len);
     if(!r){
         return 1;
     }
@@ -145,7 +145,7 @@ seek_to(const char* header_name, header_t* out_hdr){
             continue;
         }
         //printf("Check for [%s]\n", header_name);
-        r = strncmp(out_hdr->key_addr, header_name, out_hdr->key_len);
+        r = strncmp((char*)out_hdr->key_addr, header_name, out_hdr->key_len);
         if(!r){
             return 0;
         }
@@ -175,7 +175,7 @@ segwriter_add(segwriter_t* sw, void* base, size_t len){
     if(sw->iov_count + 1 == sw->iov_bufcount){
         /* Resize it first */
         sw->iov_bufcount *= 2;
-        printf("Realloc: %p %d => %d\n",sw->iovs, sw->iov_count, sw->iov_bufcount);
+        //printf("Realloc: %p %d => %d\n",sw->iovs, sw->iov_count, sw->iov_bufcount);
         sw->iovs = realloc(sw->iovs, sizeof(struct iovec)*sw->iov_bufcount);
     }
     sw->iovs[sw->iov_count].iov_base = base;
@@ -264,7 +264,7 @@ run(void){
     int term = 0;
     header_t hdr;
     long len,proplen;
-    void *segstart, *segend;
+    unsigned char *segstart, *segend;
     segwriter_t sw;
     currev = -1;
     curoff = 0; /* off = 0 must point beginning of the header */
